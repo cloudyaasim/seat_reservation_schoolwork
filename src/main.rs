@@ -15,7 +15,10 @@ use my_middleware::auth;
 async fn main() {
     /* 初始化日志系统，默认从环境变量读取日志级别配置 */
     tracing_subscriber::fmt()
-        .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
+        .with_env_filter(
+            tracing_subscriber::EnvFilter::try_from_default_env()
+                .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("info")),
+        )
         .init();
 
     /* 创建数据库连接池 */
