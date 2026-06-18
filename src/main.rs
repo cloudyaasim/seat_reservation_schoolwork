@@ -11,9 +11,6 @@ mod tasks;
 use handlers::{floors, reserve, seats, slots, users};
 use my_middleware::auth;
 
-const DB_URL: &str = "mysql://seat_res:123456@localhost/seat_res_db";
-const LISTENING_ADDR: &str = "0.0.0.0:8080";
-
 #[tokio::main]
 async fn main() {
     /* 初始化日志系统，默认从环境变量读取日志级别配置 */
@@ -21,9 +18,17 @@ async fn main() {
         .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
         .init();
 
-    /* 启动定时任务 */
-    let pool = MySqlPool::connect(DB_URL).await.unwrap();
-    info!("数据库连接成功");
+    /* 创建数据库连接池 */
+    print!("请输入数据库连接信息，格式为 mysql://用户名:密码@主机/数据库名\n");
+    print!("默认 mysql://seat_res:123456@localhost/seat_res_db\n");
+    let mut db_url = String::new();
+    std::io::stdin().read_line(&mut db_url).unwrap();
+    let db_url = match db_url.trim() {
+        "" => "mysql://seat_res:123456@localhost/seat_res_db",
+        url => url,
+    };
+    let pool = MySqlPool::connect(db_url).await.unwrap();
+    info!("数据库连接成功在 {}", db_url);
 
     /* 启动定时任务 */
     tokio::spawn(tasks::start_deadline_checker(pool.clone()));
@@ -75,7 +80,14 @@ async fn main() {
         .with_state(pool.clone());
 
     /* 启动服务 */
-    let listener = tokio::net::TcpListener::bind(LISTENING_ADDR).await.unwrap();
-    info!("监听在 {}", LISTENING_ADDR);
+    print!("请输入监听地址，格式为 IP:端口，默认 0.0.0.0:8080\n");
+    let mut listening_addr = String::new();
+    std::io::stdin().read_line(&mut listening_addr).unwrap();
+    let listening_addr = match listening_addr.trim() {
+        "" => "0.0.0.0:8080",
+        addr => addr,
+    };
+    let listener = tokio::net::TcpListener::bind(listening_addr).await.unwrap();
+    info!("监听在 {}", listening_addr);
     axum::serve(listener, app).await.unwrap();
 }
